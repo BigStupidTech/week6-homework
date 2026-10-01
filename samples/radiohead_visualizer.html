@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Music Timestamp Visualizer</title>
+<style>
+  :root{
+    --bg:#0f1220; --panel:#171a2b; --panel2:#1e2238; --line:#2a2f4a;
+    --text:#e8eaf6; --muted:#9aa0c3; --accent:#7c5cff; --lit:#ffd36b; --active:#2b2f52;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font:15px/1.5 system-ui,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--text)}
+  header{padding:18px 20px;border-bottom:1px solid var(--line);display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+  header h1{font-size:18px;margin:0;font-weight:650}
+  header .tag{color:var(--muted);font-size:12.5px}
+  .search{margin-left:auto;display:flex;gap:8px}
+  input,button{font:inherit}
+  input[type=text]{background:var(--panel2);border:1px solid var(--line);color:var(--text);border-radius:9px;padding:9px 12px;min-width:220px}
+  button{background:var(--accent);color:#fff;border:0;border-radius:9px;padding:9px 14px;cursor:pointer;font-weight:600}
+  button.ghost{background:var(--panel2);color:var(--text);border:1px solid var(--line)}
+  button:disabled{opacity:.5;cursor:default}
+  main{display:grid;grid-template-columns:330px 1fr;gap:0;height:calc(100vh - 63px)}
+  @media(max-width:760px){main{grid-template-columns:1fr;height:auto}}
+  .list{border-right:1px solid var(--line);overflow:auto;padding:10px}
+  .list .hint{color:var(--muted);padding:14px;font-size:13.5px}
+  .trk{padding:10px 12px;border:1px solid var(--line);border-radius:11px;margin:8px 0;cursor:pointer;background:var(--panel)}
+  .trk:hover{border-color:var(--accent)}
+  .trk.sel{border-color:var(--accent);background:var(--panel2)}
+  .trk .t{font-weight:600}
+  .trk .m{color:var(--muted);font-size:12.5px;margin-top:2px}
+  .trk .no{color:#ff7b7b}
+  .player{display:flex;flex-direction:column;min-width:0}
+  .controls{display:flex;align-items:center;gap:12px;padding:12px 18px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+  .controls .now{font-variant-numeric:tabular-nums;color:var(--muted);min-width:96px}
+  input[type=range]{flex:1;min-width:140px;accent-color:var(--accent)}
+  .spd{display:flex;align-items:center;gap:6px;color:var(--muted);font-size:13px}
+  .lyrics{overflow:auto;padding:28px 22px 60vh;scroll-behavior:smooth}
+  .ln{font-size:22px;line-height:1.7;color:var(--muted);opacity:.55;margin:2px 0;transition:opacity .2s,color .2s;cursor:pointer}
+  .ln.past{opacity:.8;color:var(--text)}
+  .ln.active{opacity:1;color:var(--text);background:var(--active);border-radius:10px;padding:4px 10px;margin:4px -10px}
+  .ln.blank{font-size:16px}
+  .ln .w{transition:color .08s}
+  .ln.active .w.lit,.ln.past .w{color:var(--lit)}
+  .empty{color:var(--muted);padding:40px 22px;font-size:16px}
+  footer{color:var(--muted);font-size:12px;padding:8px 18px;border-top:1px solid var(--line)}
+  a{color:var(--accent)}
+</style>
+</head>
+<body>
+<header>
+  <h1>🎵 Music Timestamp Visualizer</h1>
+  <span class="tag">LRCLIB synced lyrics · no audio — a timer lights up words by their timestamps</span>
+  <div class="search">
+    <input id="q" type="text" placeholder="Search artist or song…" autocomplete="off">
+    <button id="go">Search</button>
+  </div>
+</header>
+<main>
+  <div class="list" id="list"><div class="hint">Search LRCLIB above, then click a track to watch its lyrics light up.</div></div>
+  <div class="player">
+    <div class="controls">
+      <button id="play" disabled>▶ Play</button>
+      <button id="restart" class="ghost" disabled>⟲</button>
+      <span class="now"><span id="cur">0:00</span> / <span id="dur">0:00</span></span>
+      <input id="seek" type="range" min="0" max="100" value="0" step="0.1" disabled>
+      <span class="spd">speed
+        <select id="speed"><option>0.5</option><option selected>1</option><option>1.5</option><option>2</option></select>×</span>
+    </div>
+    <div class="lyrics" id="lyrics"><div class="empty">No track selected yet.</div></div>
+  </div>
+</main>
+<footer>Data: <a href="https://lrclib.net" target="_blank" rel="noopener">LRCLIB</a> (free, CORS-open). Part of the <b>music-timestamp-coverage</b> skill.</footer>
+
+<script>
+// Baked mode injects an array of tracks here (each with syncedLyrics); null = live search.
+const EMBEDDED = [{"trackName": "Radiohead - Creep", "artistName": "Radiohead", "albumName": "Radiohead", "duration": 236.0, "id": 9327996, "syncedLyrics": "[00:19.17] When you were here before\n[00:24.07] Couldn't look you in the eye\n[00:29.38] You're just like an angel\n[00:34.33] Your skin makes me cry\n[00:39.54] You float like a feather\n[00:44.68] In a beautiful world\n[00:49.96] I wish I was special\n[00:55.12] You're so fuckin' special\n[01:00.37] But I'm a creep\n[01:03.47] \n[01:05.52] I'm a weirdo\n[01:10.56] What the hell am I doin' here?\n[01:16.10] I don't belong here\n[01:21.17] I don't care if it hurts\n[01:26.43] I wanna have control\n[01:31.66] I want a perfect body\n[01:37.06] I want a perfect soul\n[01:42.21] I want you to notice\n[01:47.49] When I'm not around\n[01:52.73] So fuckin' special\n[01:58.72] I wish I was special\n[02:03.27] But I'm a creep\n[02:06.35] \n[02:08.42] I'm a weirdo\n[02:13.53] What the hell am I doin' here?\n[02:17.23] \n[02:19.24] I don't belong here\n[02:23.08] \n[02:25.83] She's running out the door (run)\n[02:36.29] She's running out\n[02:41.19] She run, run, run, run\n[02:50.73] \n[02:56.49] Run\n[03:05.56] Whatever makes you happy\n[03:10.76] Whatever you want\n[03:15.73] You're so fuckin' special\n[03:20.64] I wish I was special\n[03:26.14] But I'm a creep\n[03:31.32] I'm a weirdo\n[03:36.47] What the hell am I doin' here?\n[03:39.97] \n[03:41.98] I don't belong here\n[03:47.00] I don't belong here\n[03:49.61] "}, {"trackName": "Radiohead - Creep", "artistName": "Radiohead", "albumName": "Radiohead", "duration": 239.0, "id": 6730469, "syncedLyrics": "[00:18.94] When you were here before\n[00:23.88] Couldn't look you in the eye\n[00:26.86] \n[00:29.10] You're just like an angel\n[00:34.08] Your skin makes me cry\n[00:36.79] \n[00:39.38] You float like a feather\n[00:41.93] \n[00:44.45] In a beautiful world\n[00:47.00] \n[00:49.64] I wish I was special\n[00:52.33] \n[00:54.89] You're so fuckin' special\n[00:57.51] \n[01:00.14] But I'm a creep\n[01:03.04] \n[01:05.41] I'm a weirdo\n[01:10.09] What the hell am I doin' here?\n[01:15.95] I don't belong here\n[01:21.12] I don't care if it hurts\n[01:23.77] \n[01:26.22] I wanna have control\n[01:28.54] \n[01:31.54] I want a perfect body\n[01:36.88] I want a perfect soul\n[01:39.96] \n[01:42.14] I want you to notice\n[01:44.73] \n[01:47.28] When I'm not around\n[01:49.53] \n[01:52.54] So fuckin' special\n[01:57.54] I wish I was special\n[02:00.19] \n[02:02.99] But I'm a creep\n[02:05.18] \n[02:08.39] I'm a weirdo\n[02:13.45] What the hell am I doin' here?\n[02:17.05] \n[02:19.14] I don't belong here\n[02:22.69] \n[02:25.41] She's running out the door (run)\n[02:36.13] She's running out\n[02:41.06] She run, run, run, run\n[02:49.33] \n[02:56.35] Run\n[03:05.45] Whatever makes you happy\n[03:10.40] Whatever you want\n[03:15.66] You're so fuckin' special\n[03:20.60] I wish I was special\n[03:25.79] But I'm a creep\n[03:31.26] I'm a weirdo\n[03:36.08] What the hell am I doin' here?\n[03:41.67] I don't belong here\n[03:47.02] I don't belong here\n[03:49.09] "}, {"trackName": "Radiohead - Daydreaming", "artistName": "Radiohead", "albumName": "Radiohead", "duration": 384.0, "id": 6913638, "syncedLyrics": "[01:21.06] Dreamers\n[01:23.46] \n[01:25.78] They never learn\n[01:30.74] They never learn\n[01:35.86] \n[01:41.79] Beyond the point\n[01:45.73] Of no return\n[01:51.16] Of no return\n[01:59.31] \n[02:02.06] Then it's too late\n[02:06.81] The damage is done\n[02:12.46] The damage is done\n[02:20.19] \n[03:00.86] This goes\n[03:05.24] Beyond me\n[03:10.49] Beyond you\n[03:12.97] \n[03:21.04] A white room\n[03:26.10] By a window\n[03:30.43] Where the sun comes\n[03:37.24] Through\n[03:40.01] \n[03:42.29] We are\n[03:46.16] Just happy to serve\n[03:52.24] Just happy to serve\n[03:57.44] You\n[03:58.21] "}, {"trackName": "Radiohead - Nude", "artistName": "Radiohead", "albumName": "Radiohead", "duration": 257.0, "id": 9451212, "syncedLyrics": "[00:46.81] Don't get any big ideas\n[00:57.84] They're not gonna happen\n[01:07.56] \n[01:09.60] You paint yourself white\n[01:16.29] \n[01:21.24] And fill up with noise\n[01:26.62] But there'll be something missing\n[01:35.59] \n[01:40.27] Now that you found it\n[01:46.81] It's gone\n[01:52.23] Now that you feel it\n[01:58.82] You don't\n[02:03.63] You've gone off the rails\n[02:10.13] \n[02:16.61] So don't get any big ideas\n[02:28.44] They're not gonna happen\n[02:36.87] \n[02:42.98] You'll go to Hell\n[02:50.80] For what your dirty mind\n[02:59.58] Is thinking\n[03:08.19] "}, {"trackName": "Radiohead - Daydreaming", "artistName": "Radiohead", "albumName": "Radiohead", "duration": 387.0, "id": 15829727, "syncedLyrics": "[01:21.08] Dreamers\n[01:25.72] They never learn\n[01:30.72] They never learn\n[01:36.68] \n[01:41.75] Beyond the point\n[01:45.77] Of no return\n[01:51.18] Of no return\n[01:59.19] \n[02:02.09] Then it's too late\n[02:06.88] The damage is done\n[02:12.43] The damage is done\n[02:20.00] \n[03:00.83] This goes\n[03:05.29] Beyond me\n[03:10.49] Beyond you\n[03:14.79] \n[03:21.00] A white room\n[03:26.01] By a window\n[03:30.47] Where the sun comes\n[03:37.23] Through\n[03:39.98] \n[03:42.27] We are\n[03:46.13] Just happy to serve\n[03:49.95] \n[03:52.26] Just happy to serve\n[03:57.46] You\n[03:58.11] "}, {"trackName": "Radiohead - Paranoid Android", "artistName": "Radiohead", "albumName": "Radiohead", "duration": 392.0, "id": 35441907, "syncedLyrics": "[00:18.06] Please could you stop the noise?\n[00:22.05] I'm tryna get some rest\n[00:27.86] \n[00:35.91] From all the unborn chicken\n[00:40.76] Voices in my head\n[00:46.99] \n[00:49.27] What's that? (I may be paranoid, but not an android)\n[00:57.72] What's that? (I may be paranoid, but not an android)\n[01:08.29] When I am king\n[01:10.86] You will be first against the wall\n[01:18.63] \n[01:25.92] With your opinion\n[01:29.03] Which is of no consequence at all\n[01:39.12] What's that? (I may be paranoid, but no android)\n[01:47.68] What's that? (I may be paranoid, but no android)\n[01:56.74] \n[02:09.80] La-la-la-la-la-la\n[02:11.90] La-la-la-la-la-la\n[02:14.40] La-la-la-la-la-la\n[02:16.52] La, la\n[02:19.94] Ambition makes you look pretty ugly\n[02:25.68] Kicking, squealing, Gucci little piggy\n[02:31.56] La-la-la-la-la-la\n[02:34.35] La-la-la-la-la-la\n[02:36.51] La-la-la-la-la-la\n[02:39.10] La-la-la\n[02:42.03] You don't remember, you don't remember\n[02:45.28] Why don't you remember my name?\n[02:48.15] Off with his head, man, off with his head, man\n[02:51.22] Why don't you remember my name?\n[02:52.52] I guess he does\n[03:00.15] \n[03:34.52] Ah, oh, oh, oh\n[03:41.19] Oh, oh, oh, oh\n[03:48.58] Oh, oh\n[03:56.45] Oh, oh\n[04:02.19] \n[04:04.34] Rain down, rain down\n[04:10.81] Come on, rain down on me\n[04:20.36] From a great height\n[04:23.70] From a great height, height\n[04:34.79] Rain down, rain down\n[04:41.77] Come on, rain down on me\n[04:50.99] From a great height\n[04:54.35] From a great height, height\n[05:05.39] (Rain down) that's it, sir, you're leaving\n[05:09.42] The crackle of pigskin (rain down)\n[05:13.85] (Come on rain down) the dust and the screaming\n[05:17.26] The yuppies networking\n[05:21.22] The panic, the vomit (from a great height)\n[05:24.85] The panic, the vomit (from a great height)\n[05:29.16] God loves his children\n[05:32.63] God loves his children, yeah\n[05:35.97] "}, {"trackName": "Radiohead - No Surprises", "artistName": "Radiohead", "albumName": "Radiohead", "duration": 229.0, "id": 6609479, "syncedLyrics": "[00:26.84] A heart that's full up like a landfill\n[00:35.95] A job that slowly kills you\n[00:42.58] Bruises that won't heal\n[00:49.23] \n[00:52.04] You look so tired, unhappy\n[00:58.21] Bring down the government\n[01:04.57] They don't, they don't speak for us\n[01:14.23] \n[01:17.32] I'll take a quiet life\n[01:23.12] A handshake of carbon monoxide\n[01:29.54] No alarms and no surprises\n[01:35.86] No alarms and no surprises\n[01:41.97] No alarms and no surprises\n[01:48.29] Silent\n[01:54.68] Silent\n[02:01.22] This is my final fit\n[02:06.52] My final bellyache with\n[02:13.78] No alarms and no surprises\n[02:20.08] No alarms and no surprises\n[02:26.10] No alarms and no surprises, please\n[02:37.07] \n[02:56.60] Such a pretty house\n[03:02.16] And such a pretty garden\n[03:08.63] No alarms and no surprises\n[03:14.76] No alarms and no surprises\n[03:20.82] No alarms and no surprises, please\n[03:28.98] "}, {"trackName": "Radiohead - Karma Police", "artistName": "Radiohead", "albumName": "Radiohead", "duration": 264.0, "id": 6730475, "syncedLyrics": "[00:21.57] Karma police\n[00:26.51] \n[00:31.15] Arrest this man\n[00:33.98] He talks in maths\n[00:37.74] He buzzes like a fridge\n[00:40.62] He's like a detuned radio\n[00:47.83] \n[00:52.52] Karma police\n[00:57.18] Arrest this girl\n[01:00.07] Her Hitler hairdo\n[01:03.64] Is making me feel ill\n[01:06.26] And we have crashed her party\n[01:13.37] \n[01:18.65] This is what you'll get\n[01:24.94] This is what you'll get\n[01:30.40] This is what you'll get\n[01:35.06] When you mess with us\n[01:40.88] \n[01:44.11] Karma police\n[01:48.17] I've given all I can\n[01:51.03] It's not enough\n[01:54.78] I've given all I can\n[01:57.51] But we're still on the payroll\n[02:04.93] \n[02:09.65] This is what you'll get\n[02:15.42] This is what you'll get\n[02:21.42] This is what you'll get\n[02:26.17] When you mess with us\n[02:31.63] \n[02:34.36] For a minute there\n[02:38.75] I lost myself, I lost myself\n[02:47.31] Phew, for a minute there\n[02:51.57] I lost myself, I lost myself\n[02:59.65] \n[03:13.12] For a minute there\n[03:17.29] I lost myself, I lost myself\n[03:25.93] Phew, for a minute there\n[03:29.82] I lost myself, I lost myself\n[03:41.96] "}, {"trackName": "Radiohead - Lotus Flower", "artistName": "Radiohead", "albumName": "Radiohead", "duration": 308.0, "id": 11437297, "syncedLyrics": "[00:59.97] I will shape myself into your pocket\n[01:03.75] Invisible, do what you want, do what you want\n[01:12.76] \n[01:14.98] I will shrink and I will disappear\n[01:18.64] I will slip into the groove and cut me up, and cut me up\n[01:30.68] \n[01:32.82] There's an empty space inside my heart\n[01:36.52] Where the weeds take root\n[01:38.78] And now I'll set you free\n[01:43.17] I'll set you free\n[01:47.64] There's an empty space inside my heart\n[01:51.66] Where the weeds take root\n[01:53.65] Tonight I'll set you free\n[01:58.24] I'll set you free\n[02:01.33] \n[02:05.00] Slowly we unfurl\n[02:08.76] As lotus flowers\n[02:10.61] 'Cause all I want is the moon upon a stick\n[02:16.27] Just to see what if\n[02:20.03] Just to see what is\n[02:23.69] I can't kick your habit\n[02:25.71] Just to feed your fast ballooning head\n[02:31.44] Listen to your heart\n[02:37.45] \n[02:48.82] We will shrink and be quiet as mice\n[02:52.41] While the cat is away, do what we want\n[02:58.06] Do what we want\n[03:02.57] \n[03:06.56] There's an empty space inside my heart\n[03:10.25] Where the weeds take root\n[03:12.41] So now I set you free\n[03:16.87] I set you free\n[03:20.46] \n[03:29.32] 'Cause all I want is the moon upon a stick\n[03:35.19] Just to see what if\n[03:38.83] Just to see what is\n[03:44.52] Put the lotus flower into my room\n[03:53.87] Slowly we unfurl\n[03:57.49] As lotus flowers\n[03:59.20] 'Cause all I want is the moon upon a stick\n[04:04.61] I dance around a pit\n[04:08.32] The darkness is beneath\n[04:11.92] I can't kick your habit\n[04:14.00] Just to feed your fast ballooning head\n[04:19.80] Listen to your heart\n[04:22.32] "}, {"trackName": "Radiohead - Creep (Acoustic)", "artistName": "Radiohead", "albumName": "Radiohead", "duration": 255.0, "id": 38173363, "syncedLyrics": "[00:20.50]When you were here before\n[00:26.19]Couldn't look you in the eye\n[00:31.76]You're just like an angel\n[00:37.34]Your skin makes me cry\n[00:43.39]You float like a feather\n[00:49.29]In a beautiful world\n[00:54.83]And I wish I was special\n[01:00.30]You're so very special\n[01:03.50]\n[01:06.46]And I'm a creep\n[01:12.39]I'm a weirdo\n[01:17.37]What the hell am I doing here?\n[01:23.89]I don't belong here\n[01:29.84]I don't care if it hurts\n[01:35.40]I wanna have control\n[01:41.51]I want a perfect body\n[01:46.79]I want a perfect soul\n[01:53.21]I want you to notice\n[01:58.92]When I'm not around\n[02:04.00]You're so very special\n[02:09.53]I wish I was special\n[02:15.66]But I'm a creep\n[02:21.70]I'm a weirdo\n[02:26.82]What the hell am I doing here?\n[02:33.82]When I don't belong here, oh, oh\n[02:40.95]She's running out again\n[02:51.72]She's running out\n[02:57.86]She run, run, run, run\n[03:02.00]Run\n[03:14.69]Run\n[03:16.99]\n[03:24.75]Whatever makes you happy\n[03:30.68]Whatever you want\n[03:35.69]You're so very special\n[03:41.75]I wish I was special\n[03:47.74]But I'm a creep\n[03:53.64]I'm a weirdo\n[03:59.04]What the hell am I doing here?\n[04:05.54]I don't belong here\n[04:11.68]I don't belong here\n[04:14.84]"}, {"trackName": "Radiohead - Creep", "artistName": "Radiohead", "albumName": "Radiohead - Creep", "duration": 236.0, "id": 27196790, "syncedLyrics": "[00:19.10] When you were here before\n[00:24.09] Couldn't look you in the eye\n[00:27.16] \n[00:29.32] You're just like an angel\n[00:34.38] Your skin makes me cry\n[00:39.56] You float like a feather\n[00:44.62] In a beautiful world\n[00:49.91] I wish I was special\n[00:55.12] You're so fuckin' special\n[01:00.39] But I'm a creep\n[01:05.57] I'm a weirdo\n[01:10.55] What the hell am I doin' here?\n[01:16.14] I don't belong here\n[01:21.11] I don't care if it hurts\n[01:26.45] I wanna have control\n[01:31.60] I want a perfect body\n[01:37.08] I want a perfect soul\n[01:42.26] I want you to notice\n[01:47.48] When I'm not around\n[01:52.74] So fuckin' special\n[01:58.78] I wish I was special\n[02:03.22] But I'm a creep\n[02:08.45] I'm a weirdo\n[02:13.56] What the hell am I doin' here?\n[02:19.21] I don't belong here\n[02:23.00] \n[02:25.85] She's running out the door (run)\n[02:36.25] She's running out\n[02:41.13] She run, run, run, run\n[02:50.55] \n[02:56.48] Run\n[03:02.01] \n[03:05.54] Whatever makes you happy\n[03:10.79] Whatever you want\n[03:15.72] You're so fuckin' special\n[03:20.64] I wish I was special\n[03:26.18] But I'm a creep\n[03:31.35] I'm a weirdo\n[03:36.43] What the hell am I doin' here?\n[03:41.93] I don't belong here\n[03:47.08] I don't belong here\n[03:49.32] "}, {"trackName": "Radiohead - Creep", "artistName": "Radiohead", "albumName": "Radiohead Videos", "duration": 237.0, "id": 10744845, "syncedLyrics": "[00:18.98] When you were here before\n[00:23.85] Couldn't look you in the eye\n[00:27.09] \n[00:29.14] You're just like an angel\n[00:34.00] Your skin makes me cry\n[00:39.39] You float like a feather\n[00:44.42] In a beautiful world\n[00:49.68] I wish I was special\n[00:54.85] You're so fuckin' special\n[01:00.12] But I'm a creep\n[01:05.51] I'm a weirdo\n[01:10.12] What the hell am I doin' here?\n[01:16.09] I don't belong here\n[01:21.37] I don't care if it hurts\n[01:26.35] I wanna have control\n[01:31.64] I want a perfect body\n[01:36.91] I want a perfect soul\n[01:42.25] I want you to notice\n[01:47.30] When I'm not around\n[01:52.68] So fuckin' special\n[01:57.66] I wish I was special\n[02:02.98] But I'm a creep\n[02:08.35] I'm a weirdo\n[02:13.49] What the hell am I doin' here?\n[02:19.23] I don't belong here\n[02:22.78] \n[02:25.55] She's running out the door (run)\n[02:36.26] She's running out\n[02:41.12] She run, run, run, run\n[02:49.39] \n[02:56.45] Run\n[03:05.55] Whatever makes you happy\n[03:10.53] Whatever you want\n[03:15.68] You're so fuckin' special\n[03:20.64] I wish I was special\n[03:25.89] But I'm a creep\n[03:31.22] I'm a weirdo\n[03:36.04] What the hell am I doin' here?\n[03:41.68] I don't belong here\n[03:47.05] I don't belong here\n[03:49.12] "}, {"trackName": "Radiohead - Just", "artistName": "Radiohead", "albumName": "Radiohead Videos", "duration": 245.0, "id": 32427970, "syncedLyrics": "[00:16.85] Can't get the stink off\n[00:19.68] He's been hanging 'round for days\n[00:23.93] \n[00:25.94] Comes like a comet\n[00:28.51] Suckered you, but not your friends\n[00:34.38] One day he'll get to you\n[00:35.62] And teach you how to be a holy cow\n[00:42.62] You do it to yourself, you do\n[00:46.24] And that's what really hurts\n[00:48.86] Is that you do it to yourself, just you\n[00:52.27] You and no one else\n[00:54.79] You do it to yourself\n[00:58.27] \n[01:00.38] You do it to yourself\n[01:03.56] \n[01:06.02] Don't get my sympathy\n[01:08.82] Hanging out the fifteenth floor\n[01:12.94] \n[01:15.28] You've changed the locks three times\n[01:17.59] He still come reeling through the door\n[01:21.77] \n[01:24.00] One day I'll get to you\n[01:25.00] And teach you how to get to purest hell\n[01:31.86] You do it to yourself, you do\n[01:37.03] And that's what really hurts\n[01:38.06] You do it to yourself, just you\n[01:40.82] You and no one else\n[01:43.45] You do it to yourself\n[01:46.85] \n[01:49.15] You do it to yourself\n[01:52.60] \n[02:36.08] You do it to yourself, you do\n[02:39.68] And that's what really hurts\n[02:41.06] Is that you do it to yourself, just you\n[02:43.77] You and no one else\n[02:46.96] You do it to yourself\n[02:50.82] You do it to yourself, ah\n[02:54.91] Self\n[02:58.35] You do it to yourself\n[02:59.44] You do it to yourself\n[02:59.88] Just you\n[03:00.25] You do it to yourself\n[03:00.59] Just you\n[03:00.82] You do it to yourself\n[03:01.18] "}, {"trackName": "Radiohead - Daydreaming", "artistName": "Radiohead", "albumName": "Radiohead Videos", "duration": 387.0, "id": 16015404, "syncedLyrics": "[01:21.08] Dreamers\n[01:25.72] They never learn\n[01:30.72] They never learn\n[01:36.68] \n[01:41.75] Beyond the point\n[01:45.77] Of no return\n[01:51.18] Of no return\n[01:59.19] \n[02:02.09] Then it's too late\n[02:06.88] The damage is done\n[02:12.43] The damage is done\n[02:20.00] \n[03:00.83] This goes\n[03:05.29] Beyond me\n[03:10.49] Beyond you\n[03:14.79] \n[03:21.00] A white room\n[03:26.01] By a window\n[03:30.47] Where the sun comes\n[03:37.23] Through\n[03:39.98] \n[03:42.27] We are\n[03:46.13] Just happy to serve\n[03:49.95] \n[03:52.26] Just happy to serve\n[03:57.46] You\n[03:58.11] "}, {"trackName": "Radiohead - Creep", "artistName": "Radiohead", "albumName": "Radiohead Songs", "duration": 237.0, "id": 37792970, "syncedLyrics": "[00:19.10]When you were here before\n[00:24.09]Couldn't look you in the eye\n[00:27.16]\n[00:29.32]You're just like an angel\n[00:34.38]Your skin makes me cry\n[00:39.56]You float like a feather\n[00:44.62]In a beautiful world\n[00:49.91]I wish I was special\n[00:55.12]You're so fuckin' special\n[01:00.39]But I'm a creep\n[01:05.57]I'm a weirdo\n[01:10.55]What the hell am I doin' here?\n[01:16.14]I don't belong here\n[01:21.11]I don't care if it hurts\n[01:26.45]I wanna have control\n[01:31.60]I want a perfect body\n[01:37.08]I want a perfect soul\n[01:42.26]I want you to notice\n[01:47.48]When I'm not around\n[01:52.74]So fuckin' special\n[01:58.78]I wish I was special\n[02:03.22]But I'm a creep\n[02:08.45]I'm a weirdo\n[02:13.56]What the hell am I doin' here?\n[02:19.21]I don't belong here\n[02:23.00]\n[02:25.85]She's running out the door (run)\n[02:36.25]She's running out\n[02:41.13]She run, run, run, run\n[02:50.55]\n[02:56.48]Run\n[03:02.01]\n[03:05.54]Whatever makes you happy\n[03:10.79]Whatever you want\n[03:15.72]You're so fuckin' special\n[03:20.64]I wish I was special\n[03:26.18]But I'm a creep\n[03:31.35]I'm a weirdo\n[03:36.43]What the hell am I doin' here?\n[03:41.93]I don't belong here\n[03:47.08]I don't belong here\n[03:49.32]"}, {"trackName": "Radiohead - High and Dry", "artistName": "Radiohead", "albumName": "Radiohead", "duration": 257.0, "id": 6901375, "syncedLyrics": "[00:27.60]Two jumps in a week\n[00:29.41]I bet you think that's pretty clever, don't you, boy?\n[00:34.69]\n[00:38.62]Flying on your motorcycle\n[00:41.38]Watching all the ground beneath you drop\n[00:45.80]\n[00:49.38]You'd kill yourself for recognition\n[00:52.40]Kill yourself to never, ever stop\n[00:56.71]\n[01:00.34]You broke another mirror\n[01:03.02]You're turning into something you are not\n[01:08.04]\n[01:09.68]Don't leave me high\n[01:15.08]Don't leave me dry\n[01:20.61]Don't leave me high\n[01:25.95]Don't leave me dry\n[01:29.31]\n[01:44.37]Drying up in conversation\n[01:47.20]You will be the one who cannot talk\n[01:51.78]\n[01:55.51]All your insides fall to pieces\n[01:58.16]You just sit there wishing you could still make love\n[02:03.15]\n[02:06.52]They're the ones who'll hate you\n[02:08.48]When you think you've got the world all sussed out\n[02:14.05]\n[02:17.35]They're the ones who'll spit at you\n[02:20.00]You will be the one screaming out\n[02:25.38]\n[02:26.06]Don't leave me high\n[02:31.51]Don't leave me dry\n[02:36.93]Don't leave me high\n[02:42.28]Don't leave me dry\n[02:48.78]\n[03:09.40]Oh, it's the best thing that you've ever had\n[03:13.52]The best thing that you've ever, ever had\n[03:18.48]\n[03:21.31]It's the best thing that you've ever had\n[03:24.36]The best thing you've had is gone away\n[03:29.76]\n[03:30.40]So don't leave me high\n[03:35.98]Don't leave me dry\n[03:41.33]Don't leave me high\n[03:46.73]Don't leave me dry\n[03:52.13]Don't leave me high\n[04:01.40]\n[04:02.67]Don't leave me high\n[04:08.18]Don't leave me dry\n[04:11.80]"}, {"trackName": "Radiohead - Fake Plastic Trees", "artistName": "Radiohead", "albumName": "Radiohead", "duration": 291.0, "id": 6730507, "syncedLyrics": "[00:02.99] Her green plastic watering can\n[00:09.44] For her fake Chinese rubber plant\n[00:14.60] In the fake plastic earth\n[00:25.96] \n[00:28.61] That she bought from a rubber man\n[00:35.39] In a town full of rubber plans\n[00:41.11] To get rid of itself\n[00:50.42] It wears her out\n[00:56.90] It wears her out\n[01:03.43] It wears her out\n[01:10.05] It wears her out\n[01:16.99] \n[01:21.10] She lives with a broken man\n[01:27.62] A cracked polystyrene man\n[01:32.82] Who just crumbles and burns\n[01:41.94] \n[01:47.15] He used to do surgery\n[01:53.72] For girls in the eighties\n[01:58.76] But gravity always wins\n[02:08.41] And it wears him out\n[02:14.99] It wears him out\n[02:21.75] It wears him out\n[02:27.88] It wears\n[02:39.29] She looks like the real thing\n[02:45.85] She tastes like the real thing\n[02:51.24] My fake plastic love\n[03:02.00] \n[03:05.14] But I can't help the feeling\n[03:11.74] I could blow through the ceiling\n[03:17.54] If I just turn and run\n[03:27.28] And it wears me out\n[03:33.74] It wears me out\n[03:40.11] It wears me out\n[03:46.27] It wears me out\n[03:53.12] And if I could be who you wanted\n[03:59.52] If I could be who you wanted\n[04:06.54] All the time\n[04:12.96] All the time\n[04:17.06] "}, {"trackName": "Radiohead - Man Of War", "artistName": "Radiohead", "albumName": "Radiohead", "duration": 270.0, "id": 9450660, "syncedLyrics": "[00:40.83] Drift all you like\n[00:44.34] From ocean to ocean\n[00:48.56] Search the whole world\n[00:53.69] But drunken confessions\n[00:57.08] And hijacked affairs\n[01:01.40] Will just make you more alone\n[01:08.14] \n[01:19.49] When you come home\n[01:22.96] I'll bake you a cake\n[01:28.04] Made of all their eyes\n[01:32.79] I wish you could see me\n[01:36.09] Dressed for the kill\n[01:40.83] You're my man of war\n[01:46.19] \n[01:54.30] You're my man of war\n[01:57.81] \n[02:09.36] And the worms will come for you\n[02:22.39] Big boots\n[02:27.18] Yeah, yeah, yeah\n[02:30.96] \n[02:42.39] So unplug the phones\n[02:45.84] Stop all the taps\n[02:50.50] It all comes flooding back\n[02:55.01] From poisoned cloud\n[02:57.99] And poisoned dwarf\n[03:03.11] You're my man of war\n[03:07.95] \n[03:15.62] You're my man of war\n[03:21.00] \n[03:29.90] And the worms will come for you\n[03:42.23] Big boots\n[03:45.48] \n[03:48.35] Yeah, the worms will come for you\n[04:01.40] Big boots\n[04:04.52] \n[04:07.62] For you\n[04:10.76] \n[04:14.32] Big boots\n[04:15.34] "}, {"trackName": "Radiohead - House of Cards", "artistName": "Radiohead", "albumName": "Radiohead", "duration": 273.0, "id": 9461538, "syncedLyrics": "[00:29.95] I don't want to be your friend\n[00:37.54] I just want to be your lover\n[00:42.11] \n[00:49.14] No matter how it ends\n[00:52.74] No matter how it starts\n[00:57.91] \n[01:04.44] Forget about your house of cards\n[01:08.39] And I'll do mine\n[01:13.89] \n[01:19.24] Forget about your house of cards\n[01:23.31] And I'll do mine\n[01:30.91] \n[01:34.57] Fall off the table\n[01:38.42] And get swept under\n[01:45.92] \n[01:50.32] Denial, denial\n[02:00.84] \n[02:06.14] The infrastructure will collapse\n[02:10.16] From voltage spikes\n[02:15.16] \n[02:18.07] Throw your keys in the bowl\n[02:20.79] Kiss your husband goodnight\n[02:25.49] \n[02:31.49] Forget about your house of cards\n[02:35.82] And I'll do mine\n[02:42.23] Forget about your house of cards\n[02:47.28] And I'll do mine\n[02:52.56] \n[02:58.38] Fall off the table\n[03:02.10] And get swept under\n[03:06.85] \n[03:13.90] Denial, denial\n[03:22.06] Denial, denial\n[03:31.06] \n[03:45.43] (Your ears should be burning)\n[03:49.56] Denial, denial\n[03:56.52] (Your ears should be burning)\n[04:04.41] "}, {"trackName": "Radiohead - The Daily Mail", "artistName": "Radiohead", "albumName": "Radiohead", "duration": 218.0, "id": 29640271, "syncedLyrics": "[00:33.62] The Moonies are up on the mountain\n[00:39.74] The lunatics have taken over the asylum\n[00:48.17] Waiting on the rapture\n[01:00.25] Singing, \"We're here\n[01:06.75] To keep your prices down\n[01:15.20] Feed you to the hounds\n[01:23.67] To the Daily Mail\"\n[01:29.51] Together, together\n[01:40.70] You made a pig's ear\n[01:43.86] You made a mistake\n[01:50.89] Paid off security\n[01:54.08] And got through the gate\n[02:01.22] You got away with it\n[02:04.22] But we lie in wait\n[02:07.28] Hey hey, hey hey hey\n[02:10.67] Hey hey, hey hey hey hey hey\n[02:15.34] Hey hey, hey hey hey\n[02:18.96] Hey, hey, hey hey\n[02:21.71] Where's the truth? What's the use?\n[02:25.66] In hanging around, lost and found\n[02:29.89] With your head in the sand\n[02:33.76] Fat chance, no plan\n[02:37.85] No regard for human life\n[02:41.73] You keep time with no rhyme\n[02:45.95] Fast and loose, win or lose\n[02:49.80] Jump the queue, go back again\n[02:53.79] President for life\n[02:57.54] Lord of all that flies in the sky\n[03:01.59] The beasts of the earth, the fish in the sea\n[03:05.53] You've lost command\n[03:07.48] Hey, hey hey hey\n[03:10.62] Uh, uh, uh uh uh uh\n[03:15.06] Uh uh, uh uh uh\n[03:18.55] Uh, uh, uh uh uh oh\n[03:22.76] "}];
+const API = "https://lrclib.net/api";
+const $ = s => document.querySelector(s);
+const TAG = /^\[(ar|ti|al|au|by|offset|length|re|ve|tool):/i;
+const LRC = /^\[(\d+):(\d{2})(?:[.:](\d{1,3}))?\]\s?(.*)$/;
+
+let tracks = [], sel = null, cur = null;
+let playing = false, t = 0, dur = 0, lastTs = 0, raf = null, speed = 1;
+
+const fmt = s => { s = Math.max(0, s|0); return (s/60|0) + ":" + String(s%60).padStart(2,"0"); };
+const fieldTitle  = o => o.trackName || o.title || o.name || "(untitled)";
+const fieldArtist = o => o.artistName || o.artist || "";
+const fieldAlbum  = o => o.albumName || o.album || "";
+const fieldDur    = o => (o.duration != null ? o.duration : (o.duration_sec != null ? o.duration_sec : 0)) || 0;
+
+function parseLRC(s){
+  const out = [];
+  (s||"").split("\n").forEach(raw=>{
+    const line = raw.trim();
+    if(!line || TAG.test(line)) return;
+    const m = LRC.exec(line); if(!m) return;
+    const frac = m[3] ? (+m[3])/(10**m[3].length) : 0;
+    out.push({t:(+m[1])*60 + (+m[2]) + frac, text:(m[4]||"").trim()});
+  });
+  out.sort((a,b)=>a.t-b.t);
+  return out;
+}
+
+function renderList(){
+  const L = $("#list");
+  if(!tracks.length){ L.innerHTML = '<div class="hint">No results. Try another search.</div>'; return; }
+  L.innerHTML = "";
+  tracks.forEach((trk,i)=>{
+    const synced = !!trk.syncedLyrics;
+    const d = document.createElement("div");
+    d.className = "trk" + (i===sel?" sel":"");
+    d.innerHTML = `<div class="t">${esc(fieldTitle(trk))}</div>
+      <div class="m">${esc(fieldArtist(trk))}${fieldAlbum(trk)?" · "+esc(fieldAlbum(trk)):""} · ${fmt(fieldDur(trk))}
+      ${synced?"":'<span class="no">· no synced lyrics</span>'}</div>`;
+    d.onclick = ()=>choose(i);
+    L.appendChild(d);
+  });
+}
+
+async function choose(i){
+  sel = i; renderList();
+  let trk = tracks[i];
+  if(!trk.syncedLyrics && trk.id){                      // fetch full record if list lacked lyrics
+    try{ const r = await fetch(`${API}/get/${trk.id}`); if(r.ok){ trk = await r.json(); tracks[i]=trk; } }catch(e){}
+  }
+  if(!trk.syncedLyrics){ $("#lyrics").innerHTML = '<div class="empty">This track has no synced (timestamped) lyrics on LRCLIB.</div>'; disableControls(); return; }
+  loadTrack(trk);
+}
+
+function loadTrack(trk){
+  cur = {lines: parseLRC(trk.syncedLyrics)};
+  dur = fieldDur(trk) || (cur.lines.length ? cur.lines[cur.lines.length-1].t + 4 : 0);
+  // precompute per-line end + word spans
+  const ly = $("#lyrics"); ly.innerHTML = "";
+  cur.lines.forEach((ln,idx)=>{
+    ln.end = idx+1 < cur.lines.length ? cur.lines[idx+1].t : dur;
+    const div = document.createElement("div");
+    div.className = "ln" + (ln.text ? "" : " blank");
+    div.onclick = ()=>{ seek(ln.t); if(!playing) play(); };
+    if(ln.text){
+      ln.words = ln.text.split(/(\s+)/);  // keep whitespace tokens
+      ln.words.forEach(w=>{
+        if(/^\s+$/.test(w)){ div.appendChild(document.createTextNode(w)); }
+        else { const s=document.createElement("span"); s.className="w"; s.textContent=w; div.appendChild(s); }
+      });
+    } else { div.textContent = "···"; ln.words = []; }
+    ln.el = div; ly.appendChild(div);
+  });
+  $("#dur").textContent = fmt(dur);
+  $("#seek").max = dur; $("#seek").disabled = false;
+  $("#play").disabled = false; $("#restart").disabled = false;
+  seek(0); pause();
+}
+
+function disableControls(){ $("#play").disabled=$("#restart").disabled=$("#seek").disabled=true; }
+
+function updateHighlight(){
+  if(!cur) return;
+  let active = -1;
+  for(let i=0;i<cur.lines.length;i++){ if(cur.lines[i].t <= t) active = i; else break; }
+  cur.lines.forEach((ln,i)=>{
+    const el = ln.el;
+    el.classList.toggle("active", i===active);
+    el.classList.toggle("past", i<active);
+    if(i===active && ln.words && ln.words.length){
+      const span = Math.max(0.01, ln.end - ln.t);
+      const frac = Math.min(1, Math.max(0,(t - ln.t)/span));
+      const realWords = ln.el.querySelectorAll(".w");
+      const lit = Math.round(frac * realWords.length);
+      realWords.forEach((w,wi)=> w.classList.toggle("lit", wi < lit));
+    } else if(i!==active){
+      ln.el.querySelectorAll(".w.lit").forEach(w=>w.classList.remove("lit"));
+    }
+  });
+  if(active>=0) cur.lines[active].el.scrollIntoView({block:"center", behavior:"smooth"});
+  $("#cur").textContent = fmt(t);
+  $("#seek").value = t;
+}
+
+function tick(now){
+  if(playing){
+    if(!lastTs) lastTs = now;
+    t += (now - lastTs)/1000 * speed; lastTs = now;
+    if(t >= dur){ t = dur; updateHighlight(); pause(); return; }
+    updateHighlight();
+    raf = requestAnimationFrame(tick);
+  }
+}
+function play(){ if(!cur) return; playing = true; lastTs = 0; $("#play").textContent="❚❚ Pause"; raf = requestAnimationFrame(tick); }
+function pause(){ playing = false; if(raf) cancelAnimationFrame(raf); raf=null; $("#play").textContent="▶ Play"; }
+function seek(x){ t = Math.min(dur, Math.max(0, x)); lastTs = 0; updateHighlight(); }
+
+$("#play").onclick = ()=> playing ? pause() : play();
+$("#restart").onclick = ()=>{ seek(0); };
+$("#seek").oninput = e => { seek(+e.target.value); };
+$("#speed").onchange = e => { speed = +e.target.value; };
+
+async function search(q){
+  q = (q||"").trim(); if(!q) return;
+  $("#list").innerHTML = '<div class="hint">Searching LRCLIB…</div>';
+  try{
+    const r = await fetch(`${API}/search?q=${encodeURIComponent(q)}`);
+    tracks = r.ok ? await r.json() : [];
+  }catch(e){ $("#list").innerHTML = '<div class="hint">Network error reaching LRCLIB. Open this file in a normal browser (not an offline sandbox) and check your connection.</div>'; return; }
+  sel = null; renderList();
+}
+$("#go").onclick = ()=> search($("#q").value);
+$("#q").addEventListener("keydown", e=>{ if(e.key==="Enter") search($("#q").value); });
+
+function esc(s){ return String(s).replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+
+// init
+if(Array.isArray(EMBEDDED)){ tracks = EMBEDDED; renderList(); document.querySelector("header .tag").textContent = "Pre-loaded tracks · no audio — a timer lights up words by their timestamps"; }
+</script>
+</body>
+</html>

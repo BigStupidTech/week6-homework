@@ -1,6 +1,6 @@
 ---
 name: music-timestamp-coverage
-description: Audits the availability and granularity of time-synced song lyrics ("music timestamps") for an artist using LRCLIB (lrclib.net), a free public API needing no key. For each matched track it parses the synced LRC [mm:ss.xx] timestamps and computes per-track metrics (synced-line count, lines-per-minute, vocal-onset seconds, duration) plus catalog aggregations (sync coverage %, word-sync %, instrumental %, onset and duration distributions, per-album breakdown), writing a Markdown report and CSVs. Use when asked to measure, audit, or compare how many of an artist's songs have synced/timestamped lyrics, how dense the timing is, how long the intros are, or how instrumental a catalog is — e.g. "run my music timestamps skill for Radiohead" or "check synced-lyric coverage for an artist". Re-runnable with one short sentence naming the artist (optionally an album or track-list file). Handles UTF-8 (Cyrillic/CJK) names.
+description: Audits the availability and granularity of time-synced song lyrics ("music timestamps") for an artist using LRCLIB (lrclib.net), a free public API needing no key. For each matched track it parses the synced LRC [mm:ss.xx] timestamps and computes per-track metrics (synced-line count, lines-per-minute, vocal-onset seconds, duration) plus catalog aggregations (sync coverage %, word-sync %, instrumental %, onset and duration distributions, per-album breakdown), writing a Markdown report, CSVs, and a local HTML karaoke visualizer that lights up lyrics by their timestamps (no audio). Use when asked to measure, audit, compare, or visualize how many of an artist's songs have synced/timestamped lyrics, how dense the timing is, how long the intros are, or how instrumental a catalog is — e.g. "run my music timestamps skill for Radiohead". Re-runnable with one short sentence naming the artist (optionally an album or track-list file). Handles UTF-8 (Cyrillic/CJK) names.
 ---
 
 # Music Timestamp Coverage
@@ -11,7 +11,10 @@ timestamps used for karaoke, lyric videos, and subtitles) and how fine-grained t
 timing is — using **LRCLIB** (lrclib.net), a free, public, open lyrics database that
 needs **no API key**. It fetches each matched track, parses the synced LRC, computes
 per-track and catalog-level metrics, and writes a Markdown report plus three CSVs. It
-is re-runnable with one short sentence and needs no setup beyond Python 3.
+also builds a **local HTML visualizer** (open in any browser) that lists the tracks
+and, when you click one, lights up the lyrics line-by-line on a play/seek timer — no
+audio required. It is re-runnable with one short sentence and needs no setup beyond
+Python 3.
 
 ## Research questions it answers
 1. **Sync coverage** — what share of the catalog has line-level synced lyrics vs. word-level timing, and how does that break down per album?
@@ -49,7 +52,13 @@ Written to `--out-dir` (`SLUG` = the artist name slugified):
 - `SLUG_tracks.csv` — one row per track with all per-track metrics.
 - `SLUG_summary.csv` — every aggregate statistic as `metric,value`.
 - `SLUG_by_album.csv` — the per-album coverage rollup.
+- `SLUG_visualizer.html` — a standalone **karaoke visualizer** with the audited tracks baked in: open it in a browser, click a track, and its lyrics light up on a play/seek timer (no audio). Pass `--no-visualizer` to skip it.
 - stdout — a short run log and the headline numbers.
+
+## Timestamp visualizer (local web page)
+Two ways to see the timestamps light up — both are plain local HTML, no server, no audio:
+- **`SLUG_visualizer.html`** (generated per run) — the audited tracks are embedded, so it works offline. Open it, click a track, press ▶, and each line's words light up by their `[mm:ss.xx]` timings; click any line to jump there.
+- **`assets/visualizer.html`** (bundled, standalone) — open it and **search LRCLIB live** for any artist/song (LRCLIB is CORS-open, so the browser fetches directly), then click a result to watch it light up. Use this when you just want to explore timestamps without running the Python script.
 
 ## How to present results to the user
 After running, **read `SLUG_report.md`** and summarize the headline numbers: total

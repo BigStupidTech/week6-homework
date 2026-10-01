@@ -441,6 +441,24 @@ def write_report(path, artist, params_desc, agg, albums, tracks, stats):
         fh.write("\n".join(L) + "\n")
 
 
+def write_visualizer(path, template_path, raw_records):
+    """Bake tracks that have synced lyrics into a standalone karaoke-highlight HTML
+    page (no audio — a timer lights up words by their [mm:ss.xx] timestamps)."""
+    emb = [{"trackName": r.get("trackName") or r.get("name"), "artistName": r.get("artistName"),
+            "albumName": r.get("albumName") or "", "duration": r.get("duration"),
+            "id": r.get("id"), "syncedLyrics": r.get("syncedLyrics")}
+           for r in raw_records if r.get("syncedLyrics")]
+    if not emb:
+        return 0
+    with open(template_path, encoding="utf-8") as fh:
+        html = fh.read()
+    html = html.replace("const EMBEDDED = null;",
+                        "const EMBEDDED = " + json.dumps(emb, ensure_ascii=False) + ";", 1)
+    with open(path, "w", encoding="utf-8") as fh:
+        fh.write(html)
+    return len(emb)
+
+
 # --------------------------------------------------------------------------- #
 # main
 # --------------------------------------------------------------------------- #
@@ -461,6 +479,8 @@ def main():
     ap.add_argument("--out-dir", default="./out")
     ap.add_argument("--user-agent", default=DEFAULT_UA)
     ap.add_argument("--delay", type=float, default=0.3)
+    ap.add_argument("--no-visualizer", action="store_true",
+                    help="skip writing the HTML karaoke-highlight visualizer")
     a = ap.parse_args()
 
     if not a.artist and not a.tracks:
@@ -516,6 +536,14 @@ def main():
                    f"- Max results: {a.max_results}\n- User-Agent: `{a.user_agent}`")
     write_report(report_md, artist_label, params_desc, agg, albums, tracks, stats)
 
+    vis_path = None
+    if not a.no_visualizer:
+        tpl = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "assets", "visualizer.html")
+        if os.path.exists(tpl):
+            cand = os.path.join(a.out_dir, f"{slug}_visualizer.html")
+            if write_visualizer(cand, tpl, raw):
+                vis_path = cand
+
     # stdout headline
     print("\n=== Headline ===", flush=True)
     print(f"matched={agg['total_tracks_matched']}  synced={agg['pct_with_synced_lyrics']}% "
@@ -523,7 +551,8 @@ def main():
           f"word-sync={agg['pct_with_word_sync']}%  instrumental={agg['pct_instrumental']}%", flush=True)
     print(f"lines/min median={agg['lines_per_min_median']}  onset median={agg['first_onset_sec_median']}s "
           f"(p90 {agg['first_onset_sec_p90']}s)  long-intros={agg['count_long_intro_gt20s']}", flush=True)
-    print(f"\nWrote:\n  {report_md}\n  {tracks_csv}\n  {summary_csv}\n  {album_csv}", flush=True)
+    extra = f"\n  {vis_path}  (open in a browser)" if vis_path else ""
+    print(f"\nWrote:\n  {report_md}\n  {tracks_csv}\n  {summary_csv}\n  {album_csv}{extra}", flush=True)
     return 0
 
 
