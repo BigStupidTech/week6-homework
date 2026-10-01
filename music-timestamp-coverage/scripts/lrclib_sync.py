@@ -210,19 +210,24 @@ def pctof(num, den):
 # --------------------------------------------------------------------------- #
 # collection
 # --------------------------------------------------------------------------- #
+STOPWORDS = {"the", "a", "an", "of", "and", "feat", "ft", "x"}
+
+
 def discover(artist, album, max_results, ua, delay, stats):
-    """Discovery mode: search by artist (structured if album), filter to the
-    artist, dedupe by id. Returns list of raw records."""
-    records = []
-    if album:
-        records = http_get_json("/search", {"artist_name": artist, "album_name": album}, ua, delay, stats) or []
-    if not records:
+    """Discovery mode: free-text search for the artist (album folded into the query
+    text, since structured /api/search needs track_name), then require ALL
+    significant artist tokens to appear in artistName (so 'The X' doesn't match every
+    'the ...'), dedupe by id. Returns list of raw records."""
+    q = (artist + " " + album).strip() if album else artist
+    records = http_get_json("/search", {"q": q}, ua, delay, stats) or []
+    if album and not records:                       # album text too narrow -> artist only
         records = http_get_json("/search", {"q": artist}, ua, delay, stats) or []
+    # significant tokens: >=2 chars and not a stopword; require ALL to match
+    tokens = [t for t in re.split(r"\s+", artist.lower()) if len(t) >= 2 and t not in STOPWORDS]
     kept, seen, dropped = [], set(), 0
-    tokens = [t for t in re.split(r"\s+", artist.lower()) if t]
     for rec in records[:max_results]:
         an = (rec.get("artistName") or "").lower()
-        if tokens and not any(t in an for t in tokens):
+        if tokens and not all(t in an for t in tokens):
             dropped += 1
             continue
         rid = rec.get("id")
@@ -428,9 +433,10 @@ def write_report(path, artist, params_desc, agg, albums, tracks, stats):
     L.append(f"- Unresolved tracks: {stats['unresolved_tracks']}")
     L.append(f"- Duplicate ids collapsed: {stats['duplicate_id_collisions']}")
     L.append(f"- Non-matching artist records dropped (discovery): {stats.get('dropped_non_matching_artist', 0)}")
-    L.append("\n> ⚠️ LRCLIB search is capped at 20 non-paginated results, so broad-artist runs are "
-             "under-sampled — use `--album` or `--tracks` for fuller coverage. LRCLIB is community data, "
-             "so duplicates/mislabels exist; instrumentals are excluded from density denominators.")
+    L.append("\n> ⚠️ LRCLIB search returns at most --max-results (default 20) results and is not "
+             "paginated, so broad-artist runs are under-sampled — use `--album` or `--tracks` for fuller "
+             "coverage. LRCLIB is community data, so duplicates/mislabels exist; instrumentals are "
+             "excluded from density denominators.")
     with open(path, "w", encoding="utf-8") as fh:
         fh.write("\n".join(L) + "\n")
 
@@ -439,6 +445,13 @@ def write_report(path, artist, params_desc, agg, albums, tracks, stats):
 # main
 # --------------------------------------------------------------------------- #
 def main():
+    # Make non-ASCII (Cyrillic/CJK) names safe to print even when stdout is piped/redirected.
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):
+            pass
+
     ap = argparse.ArgumentParser(description="Audit synced-lyric (timestamp) coverage for an artist via LRCLIB.")
     ap.add_argument("--artist")
     ap.add_argument("--album")

@@ -1,6 +1,6 @@
 # Music timestamp coverage — Radiohead
 
-_Generated 2026-10-01 00:51 UTC · source: LRCLIB (lrclib.net), free public API_
+_Generated 2026-10-01 01:03 UTC · source: LRCLIB (lrclib.net), free public API_
 
 ## Run parameters
 
@@ -68,4 +68,4 @@ _Generated 2026-10-01 00:51 UTC · source: LRCLIB (lrclib.net), free public API_
 - Duplicate ids collapsed: 0
 - Non-matching artist records dropped (discovery): 0
 
-> ⚠️ LRCLIB search is capped at 20 non-paginated results, so broad-artist runs are under-sampled — use `--album` or `--tracks` for fuller coverage. LRCLIB is community data, so duplicates/mislabels exist; instrumentals are excluded from density denominators.
+> ⚠️ LRCLIB search returns at most --max-results (default 20) results and is not paginated, so broad-artist runs are under-sampled — use `--album` or `--tracks` for fuller coverage. LRCLIB is community data, so duplicates/mislabels exist; instrumentals are excluded from density denominators.

@@ -1,6 +1,6 @@
 ---
 name: music-timestamp-coverage
-description: Audits the availability and granularity of time-synced song lyrics ("music timestamps") for an artist using LRCLIB (lrclib.net), a free public API that needs no key. For each matched track it fetches the record, parses the synced LRC [mm:ss.xx] line timestamps, and computes per-track metrics (synced-line count, lines-per-minute, vocal-onset seconds, timing span, duration) plus catalog-level aggregations (sync coverage %, word-sync %, instrumental %, onset and duration distributions, per-album breakdown). Outputs a Markdown report and CSV files. Use when asked to measure, audit, compare, or aggregate how many of an artist's songs have synced/timestamped lyrics, how dense the timing is, how long the intros are, or how instrumental a catalog is — e.g. "run my music timestamps skill for <artist>", "check synced-lyric coverage for <artist/album>", or when given a track list to profile. Re-runnable with one short sentence naming the artist (optionally an album or a track-list file). Handles UTF-8 (Cyrillic/CJK) names and sends a descriptive User-Agent.
+description: Audits the availability and granularity of time-synced song lyrics ("music timestamps") for an artist using LRCLIB (lrclib.net), a free public API needing no key. For each matched track it parses the synced LRC [mm:ss.xx] timestamps and computes per-track metrics (synced-line count, lines-per-minute, vocal-onset seconds, duration) plus catalog aggregations (sync coverage %, word-sync %, instrumental %, onset and duration distributions, per-album breakdown), writing a Markdown report and CSVs. Use when asked to measure, audit, or compare how many of an artist's songs have synced/timestamped lyrics, how dense the timing is, how long the intros are, or how instrumental a catalog is — e.g. "run my music timestamps skill for <artist>" or "check synced-lyric coverage for <artist>". Re-runnable with one short sentence naming the artist (optionally an album or track-list file). Handles UTF-8 (Cyrillic/CJK) names.
 ---
 
 # Music Timestamp Coverage
@@ -77,6 +77,6 @@ MusicBrainz, Deezer, or the iTunes Search API, then re-query LRCLIB.
 
 ## Etiquette & limits
 - LRCLIB needs no key but asks for a descriptive **User-Agent** (the default includes one). Requests are serialized with a small `--delay`; on HTTP 429 the script reads `Retry-After` and backs off.
-- **Search is capped at 20 results and is not paginated**, so a broad `--artist` run under-samples prolific artists — use `--album` or `--tracks` for fuller coverage.
+- **Search returns at most `--max-results` (default 20) and is not paginated**, so a broad `--artist` run under-samples prolific artists — use `--album` or `--tracks` for fuller coverage.
 - LRCLIB is community-contributed, so **duplicates and mislabels exist** (covers, karaoke, re-uploads). Discovery mode drops records whose artist doesn't match and dedupes by id, but review the per-album table and data-quality footer.
 - **Instrumentals** are excluded from timing-density denominators so they aren't misread as "missing lyrics."
