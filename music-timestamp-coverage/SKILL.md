@@ -16,7 +16,7 @@ is re-runnable with one short sentence and needs no setup beyond Python 3.
 ## Research questions it answers
 1. **Sync coverage** — what share of the catalog has line-level synced lyrics vs. word-level timing, and how does that break down per album?
 2. **Timing density** — for non-instrumental synced tracks, how many timestamped lines appear per song and per minute (median / mean / p10 / p90)?
-3. **Vocal onset** — how many seconds until the first synced line, what's the onset distribution (median / p90 / max), and which tracks have long instrumental intros (>20s)?
+3. **Vocal onset** — how many seconds until the first synced line, what's the onset distribution (median / p90 / max), and which tracks have long instrumental intros (over 20s)?
 4. **Duration distribution** — the spread of track lengths (min/median/mean/max + histogram), and does length correlate with timing density (Pearson r)?
 5. **Instrumental share** — what fraction is instrumental, and how does coverage change once instrumentals are excluded from the denominator?
 
