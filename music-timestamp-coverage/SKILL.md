@@ -1,6 +1,6 @@
 ---
 name: music-timestamp-coverage
-description: Audits the availability and granularity of time-synced song lyrics ("music timestamps") for an artist using LRCLIB (lrclib.net), a free public API needing no key. For each matched track it parses the synced LRC [mm:ss.xx] timestamps and computes per-track metrics (synced-line count, lines-per-minute, vocal-onset seconds, duration) plus catalog aggregations (sync coverage %, word-sync %, instrumental %, onset and duration distributions, per-album breakdown), writing a Markdown report and CSVs. Use when asked to measure, audit, or compare how many of an artist's songs have synced/timestamped lyrics, how dense the timing is, how long the intros are, or how instrumental a catalog is — e.g. "run my music timestamps skill for <artist>" or "check synced-lyric coverage for <artist>". Re-runnable with one short sentence naming the artist (optionally an album or track-list file). Handles UTF-8 (Cyrillic/CJK) names.
+description: Audits the availability and granularity of time-synced song lyrics ("music timestamps") for an artist using LRCLIB (lrclib.net), a free public API needing no key. For each matched track it parses the synced LRC [mm:ss.xx] timestamps and computes per-track metrics (synced-line count, lines-per-minute, vocal-onset seconds, duration) plus catalog aggregations (sync coverage %, word-sync %, instrumental %, onset and duration distributions, per-album breakdown), writing a Markdown report and CSVs. Use when asked to measure, audit, or compare how many of an artist's songs have synced/timestamped lyrics, how dense the timing is, how long the intros are, or how instrumental a catalog is — e.g. "run my music timestamps skill for Radiohead" or "check synced-lyric coverage for an artist". Re-runnable with one short sentence naming the artist (optionally an album or track-list file). Handles UTF-8 (Cyrillic/CJK) names.
 ---
 
 # Music Timestamp Coverage
@@ -24,8 +24,8 @@ is re-runnable with one short sentence and needs no setup beyond Python 3.
 Standard-library Python 3 — **no `pip install`, no API key.**
 
 ```bash
-python scripts/lrclib_sync.py --artist "<ARTIST>" [--album "<ALBUM>"] \
-    [--tracks tracks.txt] [--duration-hint <sec>] [--max-results 20] \
+python scripts/lrclib_sync.py --artist "ARTIST" [--album "ALBUM"] \
+    [--tracks tracks.txt] [--duration-hint SECONDS] [--max-results 20] \
     [--out-dir ./out] [--user-agent "..."] [--delay 0.3]
 ```
 
@@ -44,15 +44,15 @@ leave it as-is.
 - `--user-agent`, `--delay` — etiquette knobs (defaults are fine).
 
 ## What it outputs
-Written to `--out-dir` (`<slug>` = the artist name slugified):
-- `<slug>_report.md` — the human-readable report (headline numbers, per-album table, duration histogram, long-intro list, missing-sync list, data-quality footer).
-- `<slug>_tracks.csv` — one row per track with all per-track metrics.
-- `<slug>_summary.csv` — every aggregate statistic as `metric,value`.
-- `<slug>_by_album.csv` — the per-album coverage rollup.
+Written to `--out-dir` (`SLUG` = the artist name slugified):
+- `SLUG_report.md` — the human-readable report (headline numbers, per-album table, duration histogram, long-intro list, missing-sync list, data-quality footer).
+- `SLUG_tracks.csv` — one row per track with all per-track metrics.
+- `SLUG_summary.csv` — every aggregate statistic as `metric,value`.
+- `SLUG_by_album.csv` — the per-album coverage rollup.
 - stdout — a short run log and the headline numbers.
 
 ## How to present results to the user
-After running, **read `<slug>_report.md`** and summarize the headline numbers: total
+After running, **read `SLUG_report.md`** and summarize the headline numbers: total
 matched, % synced (and the instrumental-adjusted figure), % word-sync, % instrumental,
 median lines/min, median & p90 onset, and the long-intro count. Show the per-album
 table and flag any data-quality warnings (unresolved tracks, dropped cover/karaoke
