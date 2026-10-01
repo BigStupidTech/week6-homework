@@ -19,11 +19,28 @@ with e.g. *"run my music timestamps skill for Radiohead."* This skill contains:
 music-timestamp-coverage/
 ├── SKILL.md                   # instructions Claude reads (what it does + how to run)
 ├── scripts/
-│   └── lrclib_sync.py         # Python (stdlib only) — fetches data, builds tables
-└── references/
-    └── data_source.md         # the LRCLIB API reference
+│   └── lrclib_sync.py         # Python (stdlib only) — fetches data, builds tables + visualizer
+├── references/
+│   └── data_source.md         # the LRCLIB API reference
+└── assets/
+    └── visualizer.html        # standalone karaoke-highlight web page (searches LRCLIB live)
 ```
 (That folder is packaged as `music-timestamp-coverage.skill`.)
+
+## 🎬 Timestamp visualizer (local web page)
+Beyond the numbers, the skill ships a **karaoke-style visualizer** — a plain local
+HTML page, **no server and no audio**: a timer lights up each line's words by their
+`[mm:ss.xx]` timestamps.
+
+- **`assets/visualizer.html`** — open it in a browser and **search LRCLIB live** for
+  any artist/song (LRCLIB is CORS-open, so the page fetches directly). Click a result,
+  press ▶, and the lyrics light up line-by-line; click any line to jump there.
+- **`SLUG_visualizer.html`** — every run of the script also bakes the audited tracks
+  into their own offline copy (see `samples/radiohead_visualizer.html`).
+
+A working sample is committed at
+[`samples/radiohead_visualizer.html`](../../tree/feature/skill/samples/radiohead_visualizer.html)
+— download it and open in any browser.
 
 ## The research topic & questions
 **Topic:** availability and granularity of time-synced song lyrics, using free,
